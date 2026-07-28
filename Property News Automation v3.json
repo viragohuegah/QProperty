@@ -1,0 +1,1005 @@
+{
+  "name": "Property News Automation v3",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "weeks",
+              "triggerAtDay": [
+                1
+              ],
+              "triggerAtHour": 18
+            }
+          ]
+        }
+      },
+      "id": "b23d99df-d151-4bf9-9e97-ef79a0e228e3",
+      "name": "Weekly Schedule",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        0,
+        192
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "ig1",
+              "name": "ig_user_id",
+              "value": "17841446712333290",
+              "type": "string"
+            },
+            {
+              "id": "ig2",
+              "name": "ref_image_url",
+              "value": "https://lh3.googleusercontent.com/d/1fH14pVLQYwUDeJDqK1c_vTNNVK9vNaHp",
+              "type": "string"
+            },
+            {
+              "id": "ig3",
+              "name": "brand_name",
+              "value": "QProperty",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "9644ab97-3869-418a-869e-c5d5c602d6f1",
+      "name": "IG Config",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        224,
+        192
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "image",
+        "operation": "analyze",
+        "modelId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gpt-4.1-mini"
+        },
+        "text": "Describe this image's visual style in detail: color palette, typography feel, composition/layout, mood, lighting, and any recurring brand elements. Output a concise, reusable style guide I can paste into an image generator to produce new images that match this exact look.",
+        "imageUrls": "={{ $('IG Config').first().json.ref_image_url }}",
+        "options": {
+          "detail": "auto",
+          "maxTokens": 300
+        }
+      },
+      "id": "293edb2a-4468-4e7c-a74e-22b8b3eb661a",
+      "name": "Analyze Reference Style",
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2.3,
+      "position": [
+        448,
+        192
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "NvFX0xCPUHps8zGd",
+          "name": "n8n free OpenAI API credits"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "MapSearch",
+        "operation": "search",
+        "query": "berita properti Indonesia terbaru pasar rumah harga hunian",
+        "sources": [
+          "news",
+          "web"
+        ],
+        "limit": 10,
+        "tbs": "qdr:w",
+        "requestOptions": {}
+      },
+      "id": "a50e760d-8409-40bb-b1fd-740d2fc22377",
+      "name": "Search Property News",
+      "type": "@mendable/n8n-nodes-firecrawl.firecrawl",
+      "typeVersion": 1,
+      "position": [
+        672,
+        192
+      ],
+      "credentials": {
+        "firecrawlApi": {
+          "id": "TftpOb52gX9xSM0N",
+          "name": "Firecrawl API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Normalize Firecrawl search output into { title, link } items.\n// Handles: links array, data as array, data.{news,web} arrays, top-level {news,web}, or single result item.\nconst out = [];\n\nfor (const item of $input.all()) {\n  const j = item.json || {};\n  let results = [];\n\n  if (Array.isArray(j.links)) {\n    results = j.links;\n  } else if (Array.isArray(j.data)) {\n    results = j.data;\n  } else if (j.data && typeof j.data === 'object') {\n    results = [].concat(j.data.news || [], j.data.web || []);\n  } else if (Array.isArray(j.news) || Array.isArray(j.web)) {\n    results = [].concat(j.news || [], j.web || []);\n  } else if (j.title || j.url) {\n    results = [j];\n  }\n\n  for (const r of results) {\n    const title = r.title || (r.metadata && r.metadata.title) || '';\n    const link = r.url || r.link || '';\n    if (title) {\n      out.push({ json: { title, link } });\n    }\n  }\n}\n\nreturn out;"
+      },
+      "id": "1b345a78-55ba-4ff6-bac7-11bad2085558",
+      "name": "Normalize Articles",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        896,
+        192
+      ]
+    },
+    {
+      "parameters": {
+        "maxItems": 2
+      },
+      "id": "1c6092f3-3590-48f0-88ed-8c9d0f42a7a5",
+      "name": "Latest 2",
+      "type": "n8n-nodes-base.limit",
+      "typeVersion": 1,
+      "position": [
+        1120,
+        192
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const style = $('Analyze Reference Style').first().json.content || '';\nconst brand = $('IG Config').first().json.brand_name || 'QProperty';\nconst out = [];\nfor (const item of $input.all()) {\n  const title = item.json.title || \"\";\n  const prompt = `Buat grafik postingan Instagram yang bersih dan profesional untuk brand properti \"${brand}\" PERSIS dalam gaya visual berikut: ${style}. Orientasi potret 4:5. Selalu tampilkan nama brand \"${brand}\" dengan jelas dan terbaca di bagian atas gambar. Visualisasikan headline berita ini dalam BAHASA INDONESIA (terjemahkan ke Bahasa Indonesia bila perlu): \"${title}\". SEMUA teks pada gambar HARUS dalam Bahasa Indonesia dengan ejaan yang benar, tanpa teks acak atau gibberish. Sisakan ruang kosong yang cukup untuk overlay teks. Tanpa watermark.`;\n  out.push({ json: { title, imagePrompt: prompt } });\n}\nreturn out;"
+      },
+      "id": "8864e74d-5f89-44d6-970b-391491ecc731",
+      "name": "Build Image Prompt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1344,
+        192
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.stability.ai/v2beta/stable-image/generate/core",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBearerAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "accept",
+              "value": "image/*"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "prompt",
+              "value": "={{ $json.imagePrompt }}"
+            },
+            {
+              "name": "aspect_ratio",
+              "value": "4:5"
+            },
+            {
+              "name": "output_format",
+              "value": "jpeg"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          }
+        }
+      },
+      "id": "ce3a6411-fff7-443c-906e-9af096c08ef6",
+      "name": "Generate Slide Image",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1568,
+        192
+      ],
+      "credentials": {
+        "httpBearerAuth": {
+          "id": "f6QMP6EiHpFKkZsS",
+          "name": "Bearer Auth account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "resize",
+        "width": 1080,
+        "height": 1350,
+        "resizeOption": "ignoreAspectRatio",
+        "options": {
+          "destinationKey": "data",
+          "format": "jpeg",
+          "quality": 90
+        }
+      },
+      "id": "31a9478e-4d72-4d81-9e88-fac9fa1e18e9",
+      "name": "Resize to 4:5",
+      "type": "n8n-nodes-base.editImage",
+      "typeVersion": 1,
+      "position": [
+        1792,
+        192
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.imgbb.com/1/upload",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "expiration",
+              "value": "600"
+            },
+            {
+              "name": "key",
+              "value": "6bb03efa52a6c5138a8fdc84fe313d11"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "parameterType": "formBinaryData",
+              "name": "image",
+              "inputDataFieldName": "data"
+            }
+          ]
+        },
+        "options": {
+          "redirect": {
+            "redirect": {}
+          }
+        }
+      },
+      "id": "b8515819-56ed-4a58-8e4f-e20f79c492a1",
+      "name": "Upload to imgbb",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        2016,
+        192
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "u1",
+              "name": "hostedUrl",
+              "value": "={{ $json.data.url }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "2e64edb7-8d7e-400a-8f49-080e55a4847a",
+      "name": "Set Hosted URL",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2240,
+        192
+      ]
+    },
+    {
+      "parameters": {
+        "fieldsToAggregate": {
+          "fieldToAggregate": [
+            {
+              "fieldToAggregate": "hostedUrl"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "9b4f3b96-dfae-4c7e-a3c8-46f90ddc00b2",
+      "name": "Aggregate URLs",
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [
+        2464,
+        192
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Tulis caption carousel Instagram dalam Bahasa Indonesia yang merangkum berita properti terpopuler minggu ini:\n{{ $('Latest 2').all().map(i => i.json.title).join('\\n') }}",
+        "options": {
+          "systemMessage": "Kamu adalah copywriter media sosial untuk brand properti bernama QProperty. Tulis satu caption carousel Instagram dalam BAHASA INDONESIA: sebuah hook pembuka yang kuat, ringkasan 2-3 kalimat tentang kondisi pasar properti minggu ini, dan 5-8 hashtag properti yang relevan. Selalu sebutkan brand QProperty. Keluarkan hanya teks caption saja, tidak ada penjelasan lain."
+        }
+      },
+      "id": "6ec4f659-39b2-47e4-a596-9a976e7ebb4d",
+      "name": "Caption Generator",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        2688,
+        192
+      ]
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gpt-5-mini",
+          "cachedResultName": "gpt-5-mini"
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "id": "93b81823-ecca-4b92-9898-b01ec7961986",
+      "name": "OpenAI Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        2768,
+        416
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "NvFX0xCPUHps8zGd",
+          "name": "n8n free OpenAI API credits"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "sendAndWait",
+        "chatId": "6344436052",
+        "message": "=📢 Weekly Property IG Carousel — ready for review\n\nCaption:\n{{ $json.output }}\n\nApprove to publish this carousel to Instagram.",
+        "approvalOptions": {
+          "values": {
+            "approveLabel": "✅ Approve & Post"
+          }
+        },
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "id": "bc004ed6-aceb-485e-9c01-bf970ea68dbc",
+      "name": "Approve Carousel",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        3040,
+        192
+      ],
+      "webhookId": "bd851f31-27e0-4665-ba46-9436191c10e3",
+      "credentials": {
+        "telegramApi": {
+          "id": "5TIsLvS5yR3KKUZc",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "appr",
+              "leftValue": "={{ $json.data.approved }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "0837bcea-a546-4a27-b24c-ca94eee298dd",
+      "name": "Approved?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        3264,
+        192
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const urls = $('Aggregate URLs').first().json.hostedUrl || [];\nreturn urls.map(u => ({ json: { imageUrl: u } }));"
+      },
+      "id": "d12833f9-997d-455e-bdb5-1aaab06e275c",
+      "name": "Prepare Slides",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3488,
+        96
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://graph.facebook.com/v21.0/{{ $('IG Config').first().json.ig_user_id }}/media",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "facebookGraphApi",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "image_url",
+              "value": "={{ $json.imageUrl }}"
+            },
+            {
+              "name": "is_carousel_item",
+              "value": "true"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "ed0e162a-6e52-4ebc-82d5-b95d59166766",
+      "name": "Create Carousel Item",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        3712,
+        96
+      ],
+      "credentials": {
+        "facebookGraphApi": {
+          "id": "u7XW3mfZGApILS5p",
+          "name": "Facebook Graph account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "fieldsToAggregate": {
+          "fieldToAggregate": [
+            {
+              "fieldToAggregate": "id"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "14147d53-dfc1-4b24-b243-6bf2a26c06bd",
+      "name": "Collect IDs",
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [
+        3936,
+        96
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://graph.facebook.com/v21.0/{{ $('IG Config').first().json.ig_user_id }}/media",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "facebookGraphApi",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "media_type",
+              "value": "CAROUSEL"
+            },
+            {
+              "name": "children",
+              "value": "={{ $json.id.join(',') }}"
+            },
+            {
+              "name": "caption",
+              "value": "={{ $('Caption Generator').first().json.output }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "982637d8-a3b6-4c39-a957-8d3c25e0c6b8",
+      "name": "Create Carousel Container",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        4160,
+        96
+      ],
+      "credentials": {
+        "facebookGraphApi": {
+          "id": "u7XW3mfZGApILS5p",
+          "name": "Facebook Graph account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://graph.facebook.com/v21.0/{{ $('IG Config').first().json.ig_user_id }}/media_publish",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "facebookGraphApi",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "creation_id",
+              "value": "={{ $json.id }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "586a4039-824e-4bef-bc24-bf40fb37de2c",
+      "name": "Publish Carousel",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        4384,
+        96
+      ],
+      "credentials": {
+        "facebookGraphApi": {
+          "id": "UpNgmHoGXImA0nQp",
+          "name": "Facebook Graph account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "6344436052",
+        "text": "=✅ Published to Instagram! Post ID: {{ $json.id }}",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "id": "ecf3c39c-08e8-4bc1-b2be-7ce493fc8803",
+      "name": "Notify Published",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        4608,
+        0
+      ],
+      "webhookId": "7963b152-4f16-4e0f-a8cf-347cd51db903",
+      "credentials": {
+        "telegramApi": {
+          "id": "5TIsLvS5yR3KKUZc",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const headlines = $('Latest 2').all().map(i => i.json.title).join(' | ');\nconst urls = ($('Aggregate URLs').first().json.hostedUrl || []).join(' | ');\nconst caption = $('Caption Generator').first().json.output || '';\nconst postId = $json.id || '';\nreturn [{ json: {\n  published_at: new Date().toISOString(),\n  brand: 'QProperty',\n  post_id: postId,\n  caption: caption,\n  image_urls: urls,\n  news_headlines: headlines\n} }];"
+      },
+      "id": "7567336e-1fa6-4a94-bcb7-60c6e62d4ce9",
+      "name": "Build Log Row",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4608,
+        192
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1sxXe1i-W_xEwdpvFkLEPvy6oDH_rQRlhqMgRV7EyQEs",
+          "mode": "list",
+          "cachedResultName": "QProperty",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1sxXe1i-W_xEwdpvFkLEPvy6oDH_rQRlhqMgRV7EyQEs/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1sxXe1i-W_xEwdpvFkLEPvy6oDH_rQRlhqMgRV7EyQEs/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "published_at",
+              "displayName": "published_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "brand",
+              "displayName": "brand",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "post_id",
+              "displayName": "post_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "caption",
+              "displayName": "caption",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "image_urls",
+              "displayName": "image_urls",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "news_headlines",
+              "displayName": "news_headlines",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "39514c77-c804-4780-b476-4e536dd2ee1f",
+      "name": "Log to Spreadsheet",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        4832,
+        192
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "qOwcNmHR7SSaM95A",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "6344436052",
+        "text": "❌ Carousel rejected. Nothing was published.",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "id": "a6ee5469-a91e-43f4-8367-6a20d8a0f9f1",
+      "name": "Notify Rejected",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        3488,
+        288
+      ],
+      "webhookId": "899a61db-1ef2-490a-bf14-8f652d1ebde0",
+      "credentials": {
+        "telegramApi": {
+          "id": "5TIsLvS5yR3KKUZc",
+          "name": "Telegram account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Weekly Schedule": {
+      "main": [
+        [
+          {
+            "node": "IG Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IG Config": {
+      "main": [
+        [
+          {
+            "node": "Analyze Reference Style",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analyze Reference Style": {
+      "main": [
+        [
+          {
+            "node": "Search Property News",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search Property News": {
+      "main": [
+        [
+          {
+            "node": "Normalize Articles",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Articles": {
+      "main": [
+        [
+          {
+            "node": "Latest 2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Latest 2": {
+      "main": [
+        [
+          {
+            "node": "Build Image Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Image Prompt": {
+      "main": [
+        [
+          {
+            "node": "Generate Slide Image",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Slide Image": {
+      "main": [
+        [
+          {
+            "node": "Resize to 4:5",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Resize to 4:5": {
+      "main": [
+        [
+          {
+            "node": "Upload to imgbb",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upload to imgbb": {
+      "main": [
+        [
+          {
+            "node": "Set Hosted URL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Hosted URL": {
+      "main": [
+        [
+          {
+            "node": "Aggregate URLs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate URLs": {
+      "main": [
+        [
+          {
+            "node": "Caption Generator",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Caption Generator": {
+      "main": [
+        [
+          {
+            "node": "Approve Carousel",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Caption Generator",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Approve Carousel": {
+      "main": [
+        [
+          {
+            "node": "Approved?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Approved?": {
+      "main": [
+        [
+          {
+            "node": "Prepare Slides",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Notify Rejected",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Slides": {
+      "main": [
+        [
+          {
+            "node": "Create Carousel Item",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Carousel Item": {
+      "main": [
+        [
+          {
+            "node": "Collect IDs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Collect IDs": {
+      "main": [
+        [
+          {
+            "node": "Create Carousel Container",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Carousel Container": {
+      "main": [
+        [
+          {
+            "node": "Publish Carousel",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Publish Carousel": {
+      "main": [
+        [
+          {
+            "node": "Notify Published",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Build Log Row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Log Row": {
+      "main": [
+        [
+          {
+            "node": "Log to Spreadsheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "7eabef76-2b70-401b-9b83-7b5785a2452b",
+  "meta": {
+    "instanceId": "c78e0135ba86f0ad99a6d72da1dc5809519a9a4d9ae61c89ba620f7b90755da8"
+  },
+  "nodeGroups": [],
+  "id": "MtCrq6JzMC72Z1ad",
+  "tags": []
+}
