@@ -6,9 +6,12 @@
 ![Instagram](https://img.shields.io/badge/Instagram-Graph_API-E4405F)
 ![License](https://img.shields.io/badge/License-MIT-blue)
 
+
 An end-to-end **AI-powered content automation workflow** built with **n8n** that automatically creates and publishes weekly Instagram carousel posts for **QProperty**.
 
 The workflow searches the latest Indonesian property news, generates branded carousel images, writes an Instagram caption using AI, requests human approval through Telegram, publishes the carousel to Instagram, and logs every published post to Google Sheets.
+
+![Workflow Preview](preview.png)
 
 ---
 
@@ -120,7 +123,9 @@ Modify the **Latest Headlines** node (`maxItems`).
 
 ### Schedule
 
-Configured in **Weekly Schedule**.
+Configured in **Weekly Schedule** every **Monday at 18:00**.
+
+![Scheduler](scheduler.png)
 
 ### News Query
 
