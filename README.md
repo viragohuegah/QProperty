@@ -11,6 +11,13 @@ An end-to-end **AI-powered content automation workflow** built with **n8n** that
 
 The workflow searches the latest Indonesian property news, generates branded carousel images, writes an Instagram caption using AI, requests human approval through Telegram, publishes the carousel to Instagram, and logs every published post to Google Sheets.
 
+## 🚀 Demo
+
+| Resource | Link |
+|----------|------|
+| 🎥 Workflow Demo | [Watch Video](https://drive.google.com/file/d/1pPbN6n7mSjW4bTP0rMQFBczGAah6C_ty/view?usp=sharing) |
+| 📱 Instagram Post | [View Post](https://www.instagram.com/p/DbUsx-BjOe/) |
+
 ![Workflow Preview](preview.png)
 
 ---
